@@ -5,6 +5,7 @@
 #include <enet/enet.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <assert.h>
 
 typedef struct vnNetworkServer {
 	ENetHost* host;
@@ -24,11 +25,39 @@ typedef struct vnNetworkData {
 	uint32_t length;
 }vnNetworkData;
 
-int32_t vnNetworkInit();
-int32_t vnNetworkHost(vnNetworkServer *host, uint16_t port, uint32_t max_clients);
-int32_t vnNetworkConnect(vnNetworkPeer *peer, const char* addressToConnect, uint16_t port);
 
-void vnNetworkBroadcast(const char* data, uint32_t size);
+
+/*
+	Initialize the library
+*/
+int32_t vnNetworkInit();
+
+/*
+	Create a network server/host at a specific port and allow max_clients
+	number of connections
+*/
+vnNetworkServer* vnNetworkHost(uint16_t port, uint32_t max_clients);
+
+/*
+	Free the memory from creating a server/host
+*/
+void vnNetworkHostDestroy(vnNetworkServer* host);
+
+/*
+	Connect a client to a remote host
+*/
+vnNetworkPeer* vnNetworkConnect(const char* addressToConnect, uint16_t port);
+
+/*
+	Free the memory from creating a client/peer
+*/
+void vnNetworkPeerDestroy(vnNetworkPeer* peer);
+
+
+void vnNetworkPollServer(vnNetworkServer *host);
+void vnNetworkPollPeer(vnNetworkPeer* peer);
+
+void vnNetworkBroadcast(vnNetworkServer *host, const char* data, uint32_t size);
 void vnNetworkSendPacket(const char* data, uint32_t size);
 void vnNetworkSendPacketTo(const vnNetworkPeer* peer, const char* data, uint32_t size);
 void vnNetworkDisconnect();
