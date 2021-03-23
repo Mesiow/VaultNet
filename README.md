@@ -1,5 +1,5 @@
 # VaultNet
-### VaultNet is a high level C++ networking library intended for multiplayer video game development
+### VaultNet is a high level C/C++ networking library for multimedia applications
 
 ## Features
 * Cross-Platform
