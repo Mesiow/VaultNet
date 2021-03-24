@@ -36,27 +36,25 @@ int32_t vnNetworkInit();
 	Create a network server/host at a specific port and allow max_clients
 	number of connections
 */
-vnNetworkServer* vnNetworkHost(uint16_t port, uint32_t max_clients);
+void vnNetworkHost(uint16_t port, uint32_t max_clients);
 
 
 /*
 	Connect a client to a remote host
 */
-vnNetworkPeer* vnNetworkConnect(const char* addressToConnect, uint16_t port);
+void vnNetworkConnect(const char* addressToConnect, uint16_t port);
 
 
 /*
 	Gets latest received network data
 */
 vnNetworkData* vnNetworkEvent();
-
-void vnNetworkPollServer(vnNetworkServer *host);
-void vnNetworkPollPeer(vnNetworkPeer* peer);
+void vnNetworkPollEvents();
 
 /*
 	Broadcast a packet to all peers
 */
-void vnNetworkBroadcast(vnNetworkServer *host, const char* data, uint32_t size);
+void vnNetworkBroadcast(const char* data, uint32_t size);
 
 /*
 	Send a packet to the server

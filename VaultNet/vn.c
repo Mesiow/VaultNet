@@ -3,8 +3,9 @@
 vnNetworkData event;
 vnNetworkData* vnNetworkEvent() { return &event; }
 
+
 vnNetworkPeer* peer = NULL;
-vnNetworkServer* host = NULL;
+vnNetworkServer* server = NULL;
 
 int32_t vnNetworkInit()
 {
@@ -15,28 +16,27 @@ int32_t vnNetworkInit()
     return 0;
 }
 
-vnNetworkServer* vnNetworkHost(uint16_t port, uint32_t max_clients)
+void vnNetworkHost(uint16_t port, uint32_t max_clients)
 {
-    host = (vnNetworkServer*)malloc(sizeof(vnNetworkServer));
-    host->address.host = ENET_HOST_ANY;
-    host->address.port = port;
-    host->connections = max_clients;
-    host->host = enet_host_create(
-        &host->address, max_clients,
+    server = (vnNetworkServer*)malloc(sizeof(vnNetworkServer));
+    server->address.host = ENET_HOST_ANY;
+    server->address.port = port;
+    server->connections = max_clients;
+    server->host = enet_host_create(
+        &server->address, max_clients,
         2, //2 Channels
         0,
         0
     );
 
-    if (host->host == NULL) {
+    if (server->host == NULL) {
         printf("Error occured creating a vnNetwork Host\n");
-        return NULL;
+        return;
     }
-    return host;
 }
 
 
-vnNetworkPeer* vnNetworkConnect(const char* addressToConnect, uint16_t port)
+void vnNetworkConnect(const char* addressToConnect, uint16_t port)
 {
     peer = (vnNetworkPeer*)malloc(sizeof(vnNetworkPeer));
     peer->host = enet_host_create(
@@ -49,7 +49,7 @@ vnNetworkPeer* vnNetworkConnect(const char* addressToConnect, uint16_t port)
 
     if (!peer->host) {
         printf("Error occured creating a client\n");
-        return NULL;
+        return;
     }
 
     /*
@@ -64,7 +64,7 @@ vnNetworkPeer* vnNetworkConnect(const char* addressToConnect, uint16_t port)
     peer->peer = enet_host_connect(peer->host, &addr, 2, 0);
     if (peer->peer == NULL) {
         printf("No available peers for creating a connection(client)\n");
-        return NULL;
+        return;
     }
 
     ENetEvent ev;
@@ -78,72 +78,57 @@ vnNetworkPeer* vnNetworkConnect(const char* addressToConnect, uint16_t port)
         //Either the 3 seconds are up or a disconnect event was received.
         //Reset the peer in the event the 3 seconds had run out
         enet_peer_reset(peer->peer);
-        return NULL;
+        return;
     }
-
-    return peer;
 }
 
-
-void vnNetworkPollServer(vnNetworkServer *server)
+void vnNetworkPollEvents()
 {
     ENetEvent ev;
-    while (enet_host_service(server->host, &ev, 0) > 0) {
+    ENetHost* host = NULL;
+    if (server) host = server->host;
+    if (peer) host = peer->host;
+
+    assert(!((server == NULL) && (peer == NULL)));
+
+    while (enet_host_service(host, &ev, 0) > 0) {
         switch (ev.type) {
-            case ENET_EVENT_TYPE_CONNECT: {
-                 printf("New client connected on port %d\n", ev.peer->address.port);
-            }break;
-            
-            case ENET_EVENT_TYPE_DISCONNECT: {
-                printf("%d disconnected\n", ev.peer->address.host);
-                ev.peer->data = NULL;
-            }break;
+        case ENET_EVENT_TYPE_CONNECT: {
+            printf("New client connected on port %d\n", ev.peer->address.port);
+        }break;
 
-            case ENET_EVENT_TYPE_RECEIVE: {
-                printf("A packet of length %u containing %s was received from %s on channel %u.\n",
-                    ev.packet->dataLength,
-                    ev.packet->data,
-                    ev.peer->data,
-                    ev.channelID);
+        case ENET_EVENT_TYPE_DISCONNECT: {
+            printf("%d disconnected\n", ev.peer->address.host);
+            ev.peer->data = NULL;
+        }break;
 
-                vnNetworkReceiveData(ev.peer, ev.packet);
-                //enet_packet_destroy(ev.packet);
-            }break;
+        case ENET_EVENT_TYPE_RECEIVE: {
+            printf("A packet of length %u containing %s was received from %s on channel %u.\n",
+                ev.packet->dataLength,
+                ev.packet->data,
+                ev.peer->data,
+                ev.channelID);
+
+            vnNetworkReceiveData(ev.peer, ev.packet);
+            //enet_packet_destroy(ev.packet);
+        }break;
         }
     }
 }
 
-void vnNetworkPollPeer(vnNetworkPeer* peer)
+void vnNetworkBroadcast(const char* data, uint32_t size)
 {
-    ENetEvent ev;
-    while (enet_host_service(peer->host, &ev, 0) > 0) {
-        switch (ev.type) {
-            case ENET_EVENT_TYPE_RECEIVE: {
-                printf("A packet of length %u containing %s was received from %s on channel %u.\n",
-                    ev.packet->dataLength,
-                    ev.packet->data,
-                    ev.peer->data,
-                    ev.channelID);
-                
-                vnNetworkReceiveData(ev.peer, ev.packet);
-            }break;
-        }
-    }
-}
-
-void vnNetworkBroadcast(vnNetworkServer* host, const char* data, uint32_t size)
-{
-    assert(host != NULL);
-    if (host) {
+    assert(server != NULL);
+    if (server) {
         ENetPacket *packet = enet_packet_create(data, size, ENET_PACKET_FLAG_RELIABLE);
-        enet_host_broadcast(host->host, 0, packet);
+        enet_host_broadcast(server->host, 0, packet);
     }
 }
 
 void vnNetworkSendPacket(const char* data, uint32_t size)
 {
     ENetPacket* packet = enet_packet_create(data, size, ENET_PACKET_FLAG_RELIABLE);
-    enet_peer_send(peer, 0, packet);
+    enet_peer_send(peer->peer, 0, packet);
 }
 
 void vnNetworkSendPacketTo(const vnNetworkPeer* peer, const char* data, uint32_t size)
@@ -154,14 +139,31 @@ void vnNetworkSendPacketTo(const vnNetworkPeer* peer, const char* data, uint32_t
 
 void vnNetworkDisconnect()
 {
+    if (!peer) return;
 
+    ENetEvent ev;
+    enet_peer_disconnect(peer->peer, 0);
+
+    while (enet_host_service(peer->host, &ev, 3000) > 0) {
+        switch (ev.type) {
+            case ENET_EVENT_TYPE_RECEIVE:
+                enet_packet_destroy(ev.packet);
+                break;
+
+            case ENET_EVENT_TYPE_DISCONNECT:
+                printf("Successfully disconnected\n");
+                break;
+        }
+    }
+    enet_peer_reset(peer->peer);
 }
 
 void vnNetworkCleanup()
 {
-    if (host) {
-        enet_host_destroy(host->host);
-        free(host);
+    vnNetworkDisconnect();
+    if (server) {
+        enet_host_destroy(server->host);
+        free(server);
     }
     if (peer) {
         enet_host_destroy(peer->host);
