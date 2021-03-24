@@ -38,29 +38,44 @@ int32_t vnNetworkInit();
 */
 vnNetworkServer* vnNetworkHost(uint16_t port, uint32_t max_clients);
 
-/*
-	Free the memory from creating a server/host
-*/
-void vnNetworkHostDestroy(vnNetworkServer* host);
 
 /*
 	Connect a client to a remote host
 */
 vnNetworkPeer* vnNetworkConnect(const char* addressToConnect, uint16_t port);
 
-/*
-	Free the memory from creating a client/peer
-*/
-void vnNetworkPeerDestroy(vnNetworkPeer* peer);
 
+/*
+	Gets latest received network data
+*/
+vnNetworkData* vnNetworkEvent();
 
 void vnNetworkPollServer(vnNetworkServer *host);
 void vnNetworkPollPeer(vnNetworkPeer* peer);
 
+/*
+	Broadcast a packet to all peers
+*/
 void vnNetworkBroadcast(vnNetworkServer *host, const char* data, uint32_t size);
+
+/*
+	Send a packet to the server
+*/
 void vnNetworkSendPacket(const char* data, uint32_t size);
+
+/*
+	Send a packet as the server to a connected peer
+*/
 void vnNetworkSendPacketTo(const vnNetworkPeer* peer, const char* data, uint32_t size);
+
 void vnNetworkDisconnect();
 void vnNetworkCleanup();
+
+/*
+	Receive data from a peer
+*/
+static void vnNetworkReceiveData(ENetPeer *peer, ENetPacket *packet);
+
+
 
 #endif // !VN_H
