@@ -1,8 +1,7 @@
 #include "vn.h"
 
-vnNetworkData event;
-vnNetworkData* vnNetworkEvent() { return &event; }
-
+vnNetworkEvents eventList;
+vnNetworkData* latestReceivedData = NULL;
 
 vnNetworkPeer* peer = NULL;
 vnNetworkServer* server = NULL;
@@ -12,6 +11,7 @@ int32_t vnNetworkInit()
     if (enet_initialize() != 0)
         return -1;
 
+    eventList.num_packets = 0;
     atexit(enet_deinitialize);
     return 0;
 }
@@ -82,6 +82,18 @@ void vnNetworkConnect(const char* addressToConnect, uint16_t port)
     }
 }
 
+vnNetworkEvents* vnNetworkEventList()
+{
+    return &eventList;
+}
+
+vnNetworkData* vnNetworkEventLatest()
+{
+    if (!latestReceivedData) return NULL;
+
+    return latestReceivedData;
+}
+
 void vnNetworkPollEvents()
 {
     ENetEvent ev;
@@ -108,9 +120,19 @@ void vnNetworkPollEvents()
                 ev.packet->data,
                 ev.peer->data,
                 ev.channelID);
+       
+            latestReceivedData = (vnNetworkData*)malloc(sizeof(vnNetworkData));
 
-            vnNetworkReceiveData(ev.peer, ev.packet);
-            //enet_packet_destroy(ev.packet);
+            latestReceivedData->sender.peer = ev.peer;
+            latestReceivedData->data = (uint8_t*)malloc(ev.packet->dataLength * sizeof(uint8_t));
+            latestReceivedData->length = ev.packet->dataLength;
+            
+            //Copy data received
+            for (int i = 0; i < ev.packet->dataLength; i++) {
+                latestReceivedData->data[i] = ev.packet->data[i];
+            }
+            enet_packet_destroy(ev.packet);
+
         }break;
         }
     }
@@ -171,9 +193,15 @@ void vnNetworkCleanup()
     }
 }
 
-void vnNetworkReceiveData(ENetPeer* peer, ENetPacket* packet)
+void vnNetworkFreeLatestData()
 {
-    event.sender.peer = peer;
-    event.data = packet->data;
-    event.length = packet->dataLength;
+    if (latestReceivedData) {
+        if (latestReceivedData->data != NULL) {
+            free(latestReceivedData->data);
+            latestReceivedData->data = NULL;
+        }
+
+        free(latestReceivedData);
+        latestReceivedData = NULL;
+    }
 }

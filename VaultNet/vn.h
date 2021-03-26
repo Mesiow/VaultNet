@@ -7,6 +7,13 @@
 #include <stdio.h>
 #include <assert.h>
 
+#define MAX_NETWORK_EVENTS 10
+
+typedef enum eNetworkEvent {
+	NetworkConnected,
+	NetworkDisconnected
+}eNetworkEvent;
+
 typedef struct vnNetworkServer {
 	ENetHost* host;
 	ENetAddress address;
@@ -24,6 +31,11 @@ typedef struct vnNetworkData {
 	uint8_t* data;
 	uint32_t length;
 }vnNetworkData;
+
+typedef struct vnNetworkEvents {
+	vnNetworkData packets[MAX_NETWORK_EVENTS];
+	uint32_t num_packets;
+}vnNetworkEvents;
 
 
 
@@ -48,7 +60,11 @@ void vnNetworkConnect(const char* addressToConnect, uint16_t port);
 /*
 	Gets latest received network data
 */
-vnNetworkData* vnNetworkEvent();
+vnNetworkData* vnNetworkEventLatest();
+
+/*
+	Poll all network events
+*/
 void vnNetworkPollEvents();
 
 /*
@@ -69,11 +85,7 @@ void vnNetworkSendPacketTo(const vnNetworkPeer* peer, const char* data, uint32_t
 void vnNetworkDisconnect();
 void vnNetworkCleanup();
 
-/*
-	Receive data from a peer
-*/
-static void vnNetworkReceiveData(ENetPeer *peer, ENetPacket *packet);
 
-
+void vnNetworkFreeLatestData();
 
 #endif // !VN_H
