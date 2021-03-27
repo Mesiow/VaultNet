@@ -1,5 +1,5 @@
 # VaultNet
-### VaultNet is a C/C++ networking library for multimedia applications
+### VaultNet is a C networking library for multimedia applications
 
 ## Features
 * Cross-Platform
