@@ -1,6 +1,5 @@
 #include "vn.h"
 
-vnNetworkEvents eventList;
 vnNetworkData* latestReceivedData = NULL;
 
 vnNetworkPeer* peer = NULL;
@@ -11,12 +10,11 @@ int32_t vnNetworkInit()
     if (enet_initialize() != 0)
         return -1;
 
-    eventList.num_packets = 0;
     atexit(enet_deinitialize);
     return 0;
 }
 
-void vnNetworkHost(uint16_t port, uint32_t max_clients)
+int32_t vnNetworkHost(uint16_t port, uint32_t max_clients)
 {
     server = (vnNetworkServer*)malloc(sizeof(vnNetworkServer));
     server->address.host = ENET_HOST_ANY;
@@ -31,12 +29,13 @@ void vnNetworkHost(uint16_t port, uint32_t max_clients)
 
     if (server->host == NULL) {
         printf("Error occured creating a vnNetwork Host\n");
-        return;
+        return -1;
     }
+    return 0;
 }
 
 
-void vnNetworkConnect(const char* addressToConnect, uint16_t port)
+int32_t vnNetworkConnect(const char* addressToConnect, uint16_t port)
 {
     peer = (vnNetworkPeer*)malloc(sizeof(vnNetworkPeer));
     peer->host = enet_host_create(
@@ -49,7 +48,7 @@ void vnNetworkConnect(const char* addressToConnect, uint16_t port)
 
     if (!peer->host) {
         printf("Error occured creating a client\n");
-        return;
+        return -1;
     }
 
     /*
@@ -64,27 +63,24 @@ void vnNetworkConnect(const char* addressToConnect, uint16_t port)
     peer->peer = enet_host_connect(peer->host, &addr, 2, 0);
     if (peer->peer == NULL) {
         printf("No available peers for creating a connection(client)\n");
-        return;
+        return -1;
     }
 
     ENetEvent ev;
     if (enet_host_service(peer->host, &ev, 3000) > 0 &&
         ev.type == ENET_EVENT_TYPE_CONNECT) {
-        printf("Connection to %s:%d has succeeded", addressToConnect, port);
+        printf("Connection to %s:%d has succeeded\n", addressToConnect, port);
         enet_host_flush(peer->host);
+
+        return 0;
     }
     else {
         printf("Connection attempt timed out\n");
         //Either the 3 seconds are up or a disconnect event was received.
         //Reset the peer in the event the 3 seconds had run out
         enet_peer_reset(peer->peer);
-        return;
+        return -1;
     }
-}
-
-vnNetworkEvents* vnNetworkEventList()
-{
-    return &eventList;
 }
 
 vnNetworkData* vnNetworkEventLatest()
@@ -123,7 +119,9 @@ void vnNetworkPollEvents()
        
             latestReceivedData = (vnNetworkData*)malloc(sizeof(vnNetworkData));
 
-            latestReceivedData->sender.peer = ev.peer;
+            //latestReceivedData->sender.peer = ev.peer;
+            latestReceivedData->sender = (vnNetworkPeer*)malloc(sizeof(vnNetworkPeer));
+            latestReceivedData->sender->peer = ev.peer;
             latestReceivedData->data = (uint8_t*)malloc(ev.packet->dataLength * sizeof(uint8_t));
             latestReceivedData->length = ev.packet->dataLength;
             
@@ -159,9 +157,9 @@ void vnNetworkSendPacketTo(const vnNetworkPeer* peer, const char* data, uint32_t
     enet_peer_send(peer->peer, 0, packet);
 }
 
-void vnNetworkDisconnect()
+int32_t vnNetworkDisconnect()
 {
-    if (!peer) return;
+    if (!peer) return -1;
 
     ENetEvent ev;
     enet_peer_disconnect(peer->peer, 0);
@@ -174,10 +172,12 @@ void vnNetworkDisconnect()
 
             case ENET_EVENT_TYPE_DISCONNECT:
                 printf("Successfully disconnected\n");
+                return 0;
                 break;
         }
     }
     enet_peer_reset(peer->peer);
+    return -1;
 }
 
 void vnNetworkCleanup()
@@ -199,6 +199,10 @@ void vnNetworkFreeLatestData()
         if (latestReceivedData->data != NULL) {
             free(latestReceivedData->data);
             latestReceivedData->data = NULL;
+        }
+        if (latestReceivedData->sender != NULL) {
+            free(latestReceivedData->sender);
+            latestReceivedData->sender = NULL;
         }
 
         free(latestReceivedData);

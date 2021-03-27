@@ -10,8 +10,8 @@
 #define MAX_NETWORK_EVENTS 10
 
 typedef enum eNetworkEvent {
-	NetworkConnected,
-	NetworkDisconnected
+	NetworkEventConnected,
+	NetworkEventDisconnected
 }eNetworkEvent;
 
 typedef struct vnNetworkServer {
@@ -27,15 +27,10 @@ typedef struct vnNetworkPeer {
 }vnNetworkPeer;
 
 typedef struct vnNetworkData {
-	vnNetworkPeer sender;
+	vnNetworkPeer *sender;
 	uint8_t* data;
 	uint32_t length;
 }vnNetworkData;
-
-typedef struct vnNetworkEvents {
-	vnNetworkData packets[MAX_NETWORK_EVENTS];
-	uint32_t num_packets;
-}vnNetworkEvents;
 
 
 
@@ -48,13 +43,13 @@ int32_t vnNetworkInit();
 	Create a network server/host at a specific port and allow max_clients
 	number of connections
 */
-void vnNetworkHost(uint16_t port, uint32_t max_clients);
+int32_t vnNetworkHost(uint16_t port, uint32_t max_clients);
 
 
 /*
 	Connect a client to a remote host
 */
-void vnNetworkConnect(const char* addressToConnect, uint16_t port);
+int32_t vnNetworkConnect(const char* addressToConnect, uint16_t port);
 
 
 /*
@@ -82,10 +77,12 @@ void vnNetworkSendPacket(const char* data, uint32_t size);
 */
 void vnNetworkSendPacketTo(const vnNetworkPeer* peer, const char* data, uint32_t size);
 
-void vnNetworkDisconnect();
+int32_t vnNetworkDisconnect();
 void vnNetworkCleanup();
 
-
+/*
+	Must be called after done reading a newly received packet
+*/
 void vnNetworkFreeLatestData();
 
 #endif // !VN_H
